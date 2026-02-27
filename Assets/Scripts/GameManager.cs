@@ -81,16 +81,15 @@ public class GameManager : MonoBehaviour
         RaycastHit hit;
 
         // Cell layer'ına ray at
-        if (Physics.Raycast(ray, out hit, 100f))
+        if (Physics.Raycast(ray, out hit, 100f, ~0, QueryTriggerInteraction.Collide))
         {
             CellScript cell = hit.collider.GetComponent<CellScript>();
 
             if (cell != null && !cell.isOccupied)
             {
                 // Objeyi hücrenin merkezine oturt
+                droped = true;
                 activeItem.transform.position = hit.collider.transform.position;
-
-                cell.isOccupied = true;
             }
         }
 
