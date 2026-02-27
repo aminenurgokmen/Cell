@@ -5,40 +5,32 @@ public class CellScript : MonoBehaviour
     public int gridX;
     public int gridZ;
     public bool isOccupied = false;
+    public bool droped;
 
-    //void Update()
-    //{
-    //    // Sürükleme sırasında kontrol etme, sadece snap sonrası
-    //    if (GameManager.Instance.activeItem != null)
-    //        return;
-
-    //    Vector3 origin = transform.position + Vector3.down * 1f;
-    //    RaycastHit hit;
-
-    //    if (Physics.Raycast(origin, Vector3.up, out hit, 3f))
-    //    {
-    //        ItemScript item = hit.collider.GetComponent<ItemScript>();
-    //        if (item != null)
-    //        {
-    //            isOccupied = true;
-    //            item.currentCell = this;
-    //            return;
-    //        }
-    //    }
-
-    //    isOccupied = false;
-    //}
-
-    void OnTriggerStay(Collider other)
+    void Update()
     {
-        if (other.CompareTag("Item") && GameManager.Instance.droped)
+        // Sürükleme sırasında kontrol etme, sadece snap sonrası
+        if (GameManager.Instance.activeItem != null)
+            return;
+
+        Vector3 origin = transform.position + Vector3.down * 1f;
+        RaycastHit hit;
+
+        if (Physics.Raycast(origin, Vector3.up, out hit, 3f,1<<7))
         {
-            isOccupied = true;
-         //  ItemScript item = other.GetComponent<ItemScript>();
-         //  if (item != null)
-         //  {
-         //      item.currentCell = this;
-         //  }
+            Debug.DrawLine(origin, hit.point, Color.red);
+    Debug.Log("Raycast hit: " + hit.collider.name);
+            ItemScript item = hit.collider.GetComponent<ItemScript>();
+            if (item != null)
+            {
+                isOccupied = true;
+                item.currentCell = this;
+                return;
+            }
         }
+
+        isOccupied = false;
     }
+
+
 }

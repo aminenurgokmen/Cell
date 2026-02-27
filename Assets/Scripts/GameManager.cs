@@ -4,14 +4,11 @@ using UnityEngine;
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
-
     public List<Material> materials;
-
     public GameObject activeItem;   // Şu an sürüklenen obje
     private Camera mainCam;
     private float dragHeight = 0f;  // Objeyi hangi Y seviyesinde taşıyacağız
-    public List<CellScript> allCells = new List<CellScript>();
-    public bool droped;
+
 
     void Awake()
     {
@@ -81,14 +78,13 @@ public class GameManager : MonoBehaviour
         RaycastHit hit;
 
         // Cell layer'ına ray at
-        if (Physics.Raycast(ray, out hit, 100f, ~0, QueryTriggerInteraction.Collide))
+        int layerMask = ~(1 << 6); // Item layer'ını hariç tut
+        if (Physics.Raycast(ray, out hit, 100f, layerMask, QueryTriggerInteraction.Collide))
         {
             CellScript cell = hit.collider.GetComponent<CellScript>();
 
             if (cell != null && !cell.isOccupied)
             {
-                // Objeyi hücrenin merkezine oturt
-                droped = true;
                 activeItem.transform.position = hit.collider.transform.position;
             }
         }
