@@ -10,6 +10,8 @@ public class GameManager : MonoBehaviour
     public GameObject activeItem;   // Şu an sürüklenen obje
     private Camera mainCam;
     private float dragHeight = 0f;  // Objeyi hangi Y seviyesinde taşıyacağız
+    public List<CellScript> allCells = new List<CellScript>();
+    public bool droped;
 
     void Awake()
     {
@@ -19,6 +21,10 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
+        if(Input.GetKeyDown(KeyCode.Space))
+        {
+           Debug.Break();
+        }
         // Mouse basınca obje seç
         if (Input.GetMouseButtonDown(0))
         {
@@ -43,11 +49,12 @@ public class GameManager : MonoBehaviour
         Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
-        if (Physics.Raycast(ray, out hit, 1 << 6))
+        int layerMask = 1 << 6; // sadece 6. layer
+
+        if (Physics.Raycast(ray, out hit, 100f, layerMask))
         {
             activeItem = hit.collider.gameObject;
             dragHeight = activeItem.transform.position.y;
-
         }
     }
 
@@ -67,6 +74,26 @@ public class GameManager : MonoBehaviour
 
     void ReleaseObject()
     {
+        if (activeItem == null)
+            return;
+
+        Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+
+        // Cell layer'ına ray at
+        if (Physics.Raycast(ray, out hit, 100f))
+        {
+            CellScript cell = hit.collider.GetComponent<CellScript>();
+
+            if (cell != null && !cell.isOccupied)
+            {
+                // Objeyi hücrenin merkezine oturt
+                activeItem.transform.position = hit.collider.transform.position;
+
+                cell.isOccupied = true;
+            }
+        }
+
         activeItem = null;
     }
 }
