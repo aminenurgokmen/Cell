@@ -54,7 +54,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3158828764580244573, guid: 40bd8695b60f0644380f046b23dc165d, type: 3}
       propertyPath: m_Size.z
-      value: 1.6272755
+      value: 1.553941
       objectReference: {fileID: 0}
     - target: {fileID: 3158828764580244573, guid: 40bd8695b60f0644380f046b23dc165d, type: 3}
       propertyPath: m_Center.x
@@ -62,7 +62,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3158828764580244573, guid: 40bd8695b60f0644380f046b23dc165d, type: 3}
       propertyPath: m_Center.z
-      value: -0.31363773
+      value: -0.35030496
       objectReference: {fileID: 0}
     - target: {fileID: 5573330204562062410, guid: 40bd8695b60f0644380f046b23dc165d, type: 3}
       propertyPath: itemID

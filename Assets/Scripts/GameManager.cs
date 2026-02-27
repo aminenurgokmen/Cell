@@ -8,7 +8,10 @@ public class GameManager : MonoBehaviour
     public GameObject activeItem;   // Şu an sürüklenen obje
     private Camera mainCam;
     private float dragHeight = 0f;  // Objeyi hangi Y seviyesinde taşıyacağız
+private int placedObjectCount = 0;
+public int maxPlacedCount = 3;
 
+public WaveManager waveManager; // Inspector’dan bağlayacağız
 
     void Awake()
     {
@@ -69,26 +72,35 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    void ReleaseObject()
+  void ReleaseObject()
+{
+    if (activeItem == null)
+        return;
+
+    Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
+    RaycastHit hit;
+
+    int layerMask = ~(1 << 6); // Item layer'ını hariç tut
+
+    if (Physics.Raycast(ray, out hit, 100f, layerMask, QueryTriggerInteraction.Collide))
     {
-        if (activeItem == null)
-            return;
+        CellScript cell = hit.collider.GetComponent<CellScript>();
 
-        Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
-
-        // Cell layer'ına ray at
-        int layerMask = ~(1 << 6); // Item layer'ını hariç tut
-        if (Physics.Raycast(ray, out hit, 100f, layerMask, QueryTriggerInteraction.Collide))
+        if (cell != null && !cell.isOccupied)
         {
-            CellScript cell = hit.collider.GetComponent<CellScript>();
+            activeItem.transform.position = hit.collider.transform.position;
+            cell.isOccupied = true;
 
-            if (cell != null && !cell.isOccupied)
+            placedObjectCount++;
+
+            if (placedObjectCount >= maxPlacedCount)
             {
-                activeItem.transform.position = hit.collider.transform.position;
+                placedObjectCount = 0;
+                waveManager.SpawnThreeObjects();
             }
         }
-
-        activeItem = null;
     }
+
+    activeItem = null;
+}
 }
