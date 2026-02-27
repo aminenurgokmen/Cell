@@ -2,5 +2,7 @@ using UnityEngine;
 
 public class CellScript : MonoBehaviour
 {
-   public bool isOccupied = false;
+    public int gridX;
+    public int gridZ;
+    public bool isOccupied = false;
 }
