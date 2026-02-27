@@ -8,10 +8,10 @@ public class GameManager : MonoBehaviour
     public GameObject activeItem;   // Şu an sürüklenen obje
     private Camera mainCam;
     private float dragHeight = 0f;  // Objeyi hangi Y seviyesinde taşıyacağız
-private int placedObjectCount = 0;
-public int maxPlacedCount = 3;
+    private int placedObjectCount = 0;
+    public int maxPlacedCount = 3;
 
-public WaveManager waveManager; // Inspector’dan bağlayacağız
+    public WaveManager waveManager; // Inspector’dan bağlayacağız
 
     void Awake()
     {
@@ -21,9 +21,9 @@ public WaveManager waveManager; // Inspector’dan bağlayacağız
 
     void Update()
     {
-        if(Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-           Debug.Break();
+            Debug.Break();
         }
         // Mouse basınca obje seç
         if (Input.GetMouseButtonDown(0))
@@ -72,35 +72,43 @@ public WaveManager waveManager; // Inspector’dan bağlayacağız
         }
     }
 
-  void ReleaseObject()
-{
-    if (activeItem == null)
-        return;
-
-    Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
-    RaycastHit hit;
-
-    int layerMask = ~(1 << 6); // Item layer'ını hariç tut
-
-    if (Physics.Raycast(ray, out hit, 100f, layerMask, QueryTriggerInteraction.Collide))
+    void ReleaseObject()
     {
-        CellScript cell = hit.collider.GetComponent<CellScript>();
+        if (activeItem == null)
+            return;
 
-        if (cell != null && !cell.isOccupied)
+        Ray ray = mainCam.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+
+        int layerMask = ~(1 << 6); // Item layer'ını hariç tut
+
+        if (Physics.Raycast(ray, out hit, 100f, layerMask, QueryTriggerInteraction.Collide))
         {
-            activeItem.transform.position = hit.collider.transform.position;
-            cell.isOccupied = true;
+            CellScript cell = hit.collider.GetComponent<CellScript>();
 
-            placedObjectCount++;
-
-            if (placedObjectCount >= maxPlacedCount)
+            if (cell != null && !cell.isOccupied)
             {
-                placedObjectCount = 0;
-                waveManager.SpawnThreeObjects();
+                activeItem.transform.position = hit.collider.transform.position;
+                cell.isOccupied = true;
+                ItemScript itemScript = activeItem.GetComponent<ItemScript>();
+                if (itemScript == null)
+                    itemScript = activeItem.GetComponentInChildren<ItemScript>();
+                if (itemScript == null)
+                    itemScript = activeItem.GetComponentInParent<ItemScript>();
+
+                if (itemScript != null)
+                    cell.cellID = itemScript.itemID;
+
+                placedObjectCount++;
+
+                if (placedObjectCount >= maxPlacedCount)
+                {
+                    placedObjectCount = 0;
+                    waveManager.SpawnThreeObjects();
+                }
             }
         }
-    }
 
-    activeItem = null;
-}
+        activeItem = null;
+    }
 }
