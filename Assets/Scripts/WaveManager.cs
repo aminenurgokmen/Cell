@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using DG.Tweening;
 
 public class WaveManager : MonoBehaviour
 {
@@ -36,7 +37,10 @@ public class WaveManager : MonoBehaviour
         for (int i = 0; i < spawnPoints.Length; i++)
         {
             GameObject randomObject = objectList[Random.Range(0, objectList.Count)];
-            GameObject spawned = Instantiate(randomObject, spawnPoints[i].position, spawnPoints[i].rotation);
+            Vector3 targetPos = spawnPoints[i].position;
+            Vector3 startPos = targetPos + new Vector3(0, 0, -2f);
+            GameObject spawned = Instantiate(randomObject, startPos, spawnPoints[i].rotation);
+            spawned.transform.DOMove(targetPos, 0.4f).SetEase(Ease.OutBack);
             spawnedPieces.Add(spawned);
 
             // Altındaki her item'a rastgele materyal ata
