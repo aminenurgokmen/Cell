@@ -30,45 +30,67 @@ public class GameManager : MonoBehaviour
             grid[cell.gridX, cell.gridZ] = cell;
         }
     }
-    void CheckMatch(CellScript centerCell)
+    void CheckMatchAll()
     {
-        List<CellScript> horizontalMatch = new List<CellScript>();
-        List<CellScript> verticalMatch = new List<CellScript>();
+        // Tüm grid'i tara, eşleşen hücreleri topla
+        HashSet<CellScript> cellsToDestroy = new HashSet<CellScript>();
 
-        int id = centerCell.cellID;
-
-        // Kendini ekle
-        horizontalMatch.Add(centerCell);
-        verticalMatch.Add(centerCell);
-
-        // ---- HORIZONTAL ----
-        CheckDirection(centerCell, 1, 0, id, horizontalMatch);  // sağ
-        CheckDirection(centerCell, -1, 0, id, horizontalMatch); // sol
-
-        // ---- VERTICAL ----
-        CheckDirection(centerCell, 0, 1, id, verticalMatch);  // yukarı
-        CheckDirection(centerCell, 0, -1, id, verticalMatch); // aşağı
-
-        if (horizontalMatch.Count >= 3)
-            DestroyCells(horizontalMatch);
-
-        if (verticalMatch.Count >= 3)
-            DestroyCells(verticalMatch);
-    }
-    void CheckDirection(CellScript startCell, int dirX, int dirZ, int id, List<CellScript> matchList)
-    {
-        int x = startCell.gridX + dirX;
-        int z = startCell.gridZ + dirZ;
-
-        while (x >= 0 && x < gridSizeX && z >= 0 && z < gridSizeZ)
+        for (int x = 0; x < gridSizeX; x++)
         {
-            CellScript cell = grid[x, z];
-
-            if (cell != null && cell.isOccupied && cell.cellID == id)
+            for (int z = 0; z < gridSizeZ; z++)
             {
-                matchList.Add(cell);
-                x += dirX;
-                z += dirZ;
+                CellScript cell = grid[x, z];
+                if (cell == null || !cell.isOccupied || cell.cellID < 0) continue;
+
+                // Her hücreden 6 hex yönünde komşulara bak
+                // Aynı renkte 2+ yanyana = eşleşme (kendisi dahil 2)
+                // 3 ana eksen kontrol et: yön 1-4 (sağ-sol), yön 0-3 (sağüst-solalt), yön 5-2 (solüst-sağalt)
+                int[][] axisPairs = new int[][] {
+                    new int[] { 1, 4 },  // sağ - sol
+                    new int[] { 0, 3 },  // sağ-üst - sol-alt
+                    new int[] { 5, 2 }   // sol-üst - sağ-alt
+                };
+
+                int id = cell.cellID;
+
+                foreach (int[] axis in axisPairs)
+                {
+                    List<CellScript> line = new List<CellScript>();
+                    line.Add(cell);
+
+                    // İlk yönde ilerle
+                    CollectInDirection(cell, axis[0], id, line);
+                    // Ters yönde ilerle
+                    CollectInDirection(cell, axis[1], id, line);
+
+                    if (line.Count >= 2)
+                    {
+                        foreach (CellScript c in line)
+                            cellsToDestroy.Add(c);
+                    }
+                }
+            }
+        }
+
+        if (cellsToDestroy.Count > 0)
+        {
+            Debug.Log($"[MATCH] {cellsToDestroy.Count} hücre silinecek:");
+            foreach (CellScript c in cellsToDestroy)
+                Debug.Log($"  Cell ({c.gridX},{c.gridZ}) cellID={c.cellID} currentItem={c.currentItem}");
+            DestroyCells(cellsToDestroy);
+        }
+    }
+
+    void CollectInDirection(CellScript startCell, int direction, int id, List<CellScript> matchList)
+    {
+        CellScript current = startCell;
+        while (true)
+        {
+            CellScript neighbor = GridManager.Instance.GetNeighbor(current.gridX, current.gridZ, direction);
+            if (neighbor != null && neighbor.isOccupied && neighbor.cellID == id)
+            {
+                matchList.Add(neighbor);
+                current = neighbor;
             }
             else
             {
@@ -76,19 +98,21 @@ public class GameManager : MonoBehaviour
             }
         }
     }
-    void DestroyCells(List<CellScript> cells)
+
+    void DestroyCells(HashSet<CellScript> cells)
     {
         foreach (CellScript cell in cells)
         {
             if (cell == null) continue;
 
-            if (cell.transform.childCount > 0)
+            if (cell.currentItem != null)
             {
-                Destroy(cell.transform.GetChild(0).gameObject);
+                Destroy(cell.currentItem);
+                cell.currentItem = null;
             }
 
             cell.isOccupied = false;
-            cell.cellID = 0;
+            cell.cellID = -1;
         }
     }
     void Update()
@@ -160,25 +184,51 @@ public class GameManager : MonoBehaviour
 
             if (cell != null && !cell.isOccupied)
             {
+                // Parçayı hücre pozisyonuna taşı
                 activeItem.transform.position = hit.collider.transform.position;
-                cell.isOccupied = true;
-                activeItem.GetComponent<Collider>().enabled = false; // Çarpışmayı kapat
-                CheckMatch(cell);
-                ItemScript itemScript = activeItem.GetComponent<ItemScript>();
-                if (itemScript == null)
-                    itemScript = activeItem.GetComponentInChildren<ItemScript>();
-                if (itemScript == null)
-                    itemScript = activeItem.GetComponentInParent<ItemScript>();
 
-                if (itemScript != null)
-                    cell.cellID = itemScript.itemID;
+                // Tüm child item'ları bul
+                ItemScript[] items = activeItem.GetComponentsInChildren<ItemScript>();
 
-                placedObjectCount++;
-
-                if (placedObjectCount >= maxPlacedCount)
+                // Her child item'ı en yakın cell'e ayrı ayrı kaydet
+                bool placed = false;
+                foreach (ItemScript item in items)
                 {
-                    placedObjectCount = 0;
-                    waveManager.SpawnThreeObjects();
+                    CellScript nearestCell = GridManager.Instance.GetNearestCell(item.transform.position);
+                    if (nearestCell != null && !nearestCell.isOccupied)
+                    {
+                        // Item'ı parent'tan kopar ve cell pozisyonuna taşı
+                        item.transform.SetParent(null);
+                        item.transform.position = nearestCell.transform.position;
+
+                        // Cell'e kaydet
+                        nearestCell.isOccupied = true;
+                        nearestCell.cellID = item.itemID;
+                        nearestCell.currentItem = item.gameObject;
+                        item.currentCell = nearestCell;
+
+                        // Collider'ı kapat
+                        Collider col = item.GetComponent<Collider>();
+                        if (col != null) col.enabled = false;
+
+                        placed = true;
+                    }
+                }
+
+                // Boş kalan parent objeyi sil
+                if (activeItem != null && activeItem.GetComponentsInChildren<ItemScript>().Length == 0)
+                    Destroy(activeItem);
+
+                if (placed)
+                {
+                    CheckMatchAll();
+                    placedObjectCount++;
+
+                    if (placedObjectCount >= maxPlacedCount)
+                    {
+                        placedObjectCount = 0;
+                        waveManager.SpawnThreeObjects();
+                    }
                 }
             }
         }
