@@ -9,6 +9,7 @@ public class GameManager : MonoBehaviour
     public GameObject activeItem;   // Şu an sürüklenen obje
     private Camera mainCam;
     private float dragHeight = 0f;  // Objeyi hangi Y seviyesinde taşıyacağız
+    private Vector3 dragStartPos;    // Sürükleme başlangıç pozisyonu
     private int placedObjectCount = 0;
     public int maxPlacedCount = 3;
     public CellScript[,] grid;
@@ -75,6 +76,7 @@ public class GameManager : MonoBehaviour
 
         if (cellsToDestroy.Count > 0)
         {
+            
             Debug.Log($"[MATCH] {cellsToDestroy.Count} hücre silinecek:");
             foreach (CellScript c in cellsToDestroy)
                 Debug.Log($"  Cell ({c.gridX},{c.gridZ}) cellID={c.cellID} currentItem={c.currentItem}");
@@ -102,6 +104,8 @@ public class GameManager : MonoBehaviour
 
     void DestroyCells(HashSet<CellScript> cells)
     {
+        UIManager.Instance.AddDestroyedCount(cells.Count);
+
         foreach (CellScript cell in cells)
         {
             if (cell == null) continue;
@@ -110,6 +114,19 @@ public class GameManager : MonoBehaviour
             {
                 GameObject item = cell.currentItem;
                 Vector3 originalScale = item.transform.localScale;
+
+                // Particle'ı kopar ve oynat
+                if (item.transform.childCount > 0)
+                {
+                    Transform particleChild = item.transform.GetChild(0);
+                    particleChild.SetParent(null);
+                    ParticleSystem ps = particleChild.GetComponent<ParticleSystem>();
+                    if (ps != null)
+                    {
+                        ps.Play();
+                        Destroy(particleChild.gameObject, ps.main.duration + ps.main.startLifetime.constantMax);
+                    }
+                }
 
                 // Önce büyü, sonra küçülerek kaybol
                 item.transform.DOScale(originalScale * 1.1f, 0.1f)
@@ -167,6 +184,7 @@ public class GameManager : MonoBehaviour
         {
             activeItem = hit.collider.gameObject;
             dragHeight = activeItem.transform.position.y;
+            dragStartPos = activeItem.transform.position;
         }
     }
 
@@ -247,6 +265,20 @@ public class GameManager : MonoBehaviour
                     }
                 }
             }
+            else
+            {
+                // Geçersiz cell, geri dön
+                activeItem.transform.DOMove(dragStartPos, 0.3f).SetEase(Ease.OutBack);
+                activeItem = null;
+                return;
+            }
+        }
+        else
+        {
+            // Hiçbir şeye denk gelmedi, geri dön
+            activeItem.transform.DOMove(dragStartPos, 0.3f).SetEase(Ease.OutBack);
+            activeItem = null;
+            return;
         }
 
         activeItem = null;
