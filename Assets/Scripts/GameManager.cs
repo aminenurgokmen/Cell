@@ -148,6 +148,64 @@ public class GameManager : MonoBehaviour
             cell.cellID = -1;
         }
     }
+    bool CanPieceFitAnywhere(GameObject piece)
+    {
+        if (piece == null) return false;
+
+        ItemScript[] items = piece.GetComponentsInChildren<ItemScript>();
+        if (items.Length == 0) return false;
+
+        // Her boş cell'i dene
+        for (int x = 0; x < gridSizeX; x++)
+        {
+            for (int z = 0; z < gridSizeZ; z++)
+            {
+                CellScript targetCell = grid[x, z];
+                if (targetCell == null || targetCell.isOccupied) continue;
+
+                // Parçayı bu cell'e koymuş gibi simüle et
+                Vector3 offset = targetCell.transform.position - items[0].transform.position;
+
+                bool fits = true;
+                HashSet<CellScript> usedCells = new HashSet<CellScript>();
+
+                foreach (ItemScript item in items)
+                {
+                    Vector3 simPos = item.transform.position + offset;
+                    CellScript nearestCell = GridManager.Instance.GetNearestCell(simPos);
+
+                    if (nearestCell == null || nearestCell.isOccupied || usedCells.Contains(nearestCell))
+                    {
+                        fits = false;
+                        break;
+                    }
+                    usedCells.Add(nearestCell);
+                }
+
+                if (fits) return true;
+            }
+        }
+
+        return false;
+    }
+
+    void CheckFailCondition()
+    {
+        // Spawn listesinden silinmiş objeleri temizle
+        waveManager.spawnedPieces.RemoveAll(p => p == null);
+
+        // Kalan parçalardan herhangi biri yerleşebiliyor mu?
+        foreach (GameObject piece in waveManager.spawnedPieces)
+        {
+            if (CanPieceFitAnywhere(piece))
+                return; // En az biri sığıyor, devam
+        }
+
+        // Hiçbiri sığmıyor
+        Debug.Log("[FAIL] Hiçbir parça yerleştirilemez!");
+        UIManager.Instance.OnGameFail();
+    }
+
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.Space))
@@ -224,46 +282,67 @@ public class GameManager : MonoBehaviour
                 // Tüm child item'ları bul
                 ItemScript[] items = activeItem.GetComponentsInChildren<ItemScript>();
 
-                // Her child item'ı en yakın cell'e ayrı ayrı kaydet
-                bool placed = false;
+                // Önce tüm item'ların yerleşebileceğini kontrol et
+                List<KeyValuePair<ItemScript, CellScript>> placements = new List<KeyValuePair<ItemScript, CellScript>>();
+                bool canPlaceAll = true;
+
                 foreach (ItemScript item in items)
                 {
                     CellScript nearestCell = GridManager.Instance.GetNearestCell(item.transform.position);
-                    if (nearestCell != null && !nearestCell.isOccupied)
+                    if (nearestCell != null && !nearestCell.isOccupied && !placements.Exists(p => p.Value == nearestCell))
                     {
-                        // Item'ı parent'tan kopar ve cell pozisyonuna taşı
-                        item.transform.SetParent(null);
-                        item.transform.position = nearestCell.transform.position;
-
-                        // Cell'e kaydet
-                        nearestCell.isOccupied = true;
-                        nearestCell.cellID = item.itemID;
-                        nearestCell.currentItem = item.gameObject;
-                        item.currentCell = nearestCell;
-
-                        // Collider'ı kapat
-                        Collider col = item.GetComponent<Collider>();
-                        if (col != null) col.enabled = false;
-
-                        placed = true;
+                        placements.Add(new KeyValuePair<ItemScript, CellScript>(item, nearestCell));
                     }
+                    else
+                    {
+                        canPlaceAll = false;
+                        break;
+                    }
+                }
+
+                if (!canPlaceAll)
+                {
+                    // Tüm item'lar yerleşemedi, geri dön
+                    activeItem.transform.DOMove(dragStartPos, 0.3f).SetEase(Ease.OutBack);
+                    activeItem = null;
+                    return;
+                }
+
+                // Hepsi yerleşebilir, şimdi yerleştir
+                foreach (var pair in placements)
+                {
+                    ItemScript item = pair.Key;
+                    CellScript targetCell = pair.Value;
+
+                    item.transform.SetParent(null);
+                    item.transform.position = targetCell.transform.position;
+
+                    targetCell.isOccupied = true;
+                    targetCell.cellID = item.itemID;
+                    targetCell.currentItem = item.gameObject;
+                    item.currentCell = targetCell;
+
+                    Collider col = item.GetComponent<Collider>();
+                    if (col != null) col.enabled = false;
                 }
 
                 // Boş kalan parent objeyi sil
                 if (activeItem != null && activeItem.GetComponentsInChildren<ItemScript>().Length == 0)
                     Destroy(activeItem);
 
-                if (placed)
-                {
-                    CheckMatchAll();
-                    placedObjectCount++;
+                // Yerleştirilen parçayı spawn listesinden çıkar
+                waveManager.spawnedPieces.RemoveAll(p => p == null || p == activeItem);
 
-                    if (placedObjectCount >= maxPlacedCount)
-                    {
-                        placedObjectCount = 0;
-                        waveManager.SpawnThreeObjects();
-                    }
+                CheckMatchAll();
+                placedObjectCount++;
+
+                if (placedObjectCount >= maxPlacedCount)
+                {
+                    placedObjectCount = 0;
+                    waveManager.SpawnThreeObjects();
                 }
+
+                CheckFailCondition();
             }
             else
             {

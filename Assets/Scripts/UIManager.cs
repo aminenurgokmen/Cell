@@ -25,4 +25,12 @@ public class UIManager : MonoBehaviour
     {
         scoreText.text = destroyedCount.ToString();
     }
+
+    public GameObject failPanel; // Inspector'dan bağla
+
+    public void OnGameFail()
+    {
+        if (failPanel != null)
+            failPanel.SetActive(true);
+    }
 }

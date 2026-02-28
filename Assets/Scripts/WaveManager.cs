@@ -11,6 +11,9 @@ public class WaveManager : MonoBehaviour
     public Transform spawnPoint2;
     public Transform spawnPoint3;
 
+    [HideInInspector]
+    public List<GameObject> spawnedPieces = new List<GameObject>();
+
     void Start()
     {
         SpawnThreeObjects();
@@ -34,6 +37,7 @@ public class WaveManager : MonoBehaviour
         {
             GameObject randomObject = objectList[Random.Range(0, objectList.Count)];
             GameObject spawned = Instantiate(randomObject, spawnPoints[i].position, spawnPoints[i].rotation);
+            spawnedPieces.Add(spawned);
 
             // Altındaki her item'a rastgele materyal ata
             ItemScript[] items = spawned.GetComponentsInChildren<ItemScript>();
