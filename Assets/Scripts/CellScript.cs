@@ -31,8 +31,6 @@ public class CellScript : MonoBehaviour
             }
         }
 
-        isOccupied = false;
-        cellID = 0;
     }
 
 
