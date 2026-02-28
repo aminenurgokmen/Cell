@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using DG.Tweening;
 
 public class GameManager : MonoBehaviour
 {
@@ -107,7 +108,22 @@ public class GameManager : MonoBehaviour
 
             if (cell.currentItem != null)
             {
-                Destroy(cell.currentItem);
+                GameObject item = cell.currentItem;
+                Vector3 originalScale = item.transform.localScale;
+
+                // Önce büyü, sonra küçülerek kaybol
+                item.transform.DOScale(originalScale * 1.1f, 0.1f)
+                    .SetEase(Ease.OutQuad)
+                    .OnComplete(() =>
+                    {
+                        item.transform.DOScale(Vector3.zero, 0.2f)
+                            .SetEase(Ease.InBack)
+                            .OnComplete(() =>
+                            {
+                                Destroy(item);
+                            });
+                    });
+
                 cell.currentItem = null;
             }
 
