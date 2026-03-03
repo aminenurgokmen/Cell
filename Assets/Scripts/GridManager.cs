@@ -1,13 +1,22 @@
 using UnityEngine;
 
+public enum GridType { Rectangular, Honeycomb }
+
 [ExecuteInEditMode]
 public class GridManager : MonoBehaviour
 {
     public static GridManager Instance;
 
     public CellScript cellPrefab;
+    public GridType gridType = GridType.Honeycomb;
+
+    [Header("Rectangular Settings")]
     public int gridSizeX = 5;
     public int gridSizeZ = 5;
+
+    [Header("Honeycomb Settings")]
+    public int hexRadius = 6;
+
     public float cellRadius = 1f;
     public bool generateGrid = false;
 
@@ -41,6 +50,14 @@ public class GridManager : MonoBehaviour
 
     void MakeGrid()
     {
+        if (gridType == GridType.Honeycomb)
+            MakeHoneycombGrid();
+        else
+            MakeRectangularGrid();
+    }
+
+    void MakeRectangularGrid()
+    {
         grid = new CellScript[gridSizeX, gridSizeZ];
         float xSpacing = XSpacing;
         float zSpacing = ZSpacing;
@@ -59,6 +76,40 @@ public class GridManager : MonoBehaviour
                 cell.gridX = x;
                 cell.gridZ = z;
                 grid[x, z] = cell;
+            }
+        }
+    }
+
+    void MakeHoneycombGrid()
+    {
+        int size = 2 * hexRadius + 1;
+        gridSizeX = size;
+        gridSizeZ = size;
+        grid = new CellScript[size, size];
+
+        float sqrt3 = Mathf.Sqrt(3f);
+
+        for (int q = -hexRadius; q <= hexRadius; q++)
+        {
+            for (int r = -hexRadius; r <= hexRadius; r++)
+            {
+                // Bal peteği koşulu: max(|q|, |r|, |q+r|) <= hexRadius
+                if (Mathf.Max(Mathf.Abs(q), Mathf.Max(Mathf.Abs(r), Mathf.Abs(q + r))) > hexRadius)
+                    continue;
+
+                // Axial → world pozisyon (flat-top hex)
+                float xPos = cellRadius * (sqrt3 * q + sqrt3 / 2f * r);
+                float zPos = cellRadius * (1.5f * r);
+
+                // Axial → offset koordinat (grid array indeksleri)
+                int gridX = q + hexRadius;
+                int gridZ = r + hexRadius;
+
+                CellScript cell = Instantiate(cellPrefab, new Vector3(xPos, 0, zPos), Quaternion.identity);
+                cell.transform.parent = transform;
+                cell.gridX = gridX;
+                cell.gridZ = gridZ;
+                grid[gridX, gridZ] = cell;
             }
         }
     }
@@ -154,10 +205,10 @@ public class GridManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Hex komşu yönleri. Even ve odd satırlar için ayrı offset'ler.
+    /// Hex komşu yönleri (offset koordinat sistemi). Even ve odd satırlar için ayrı offset'ler.
     /// Sıra: sağ-üst, sağ, sağ-alt, sol-alt, sol, sol-üst
     /// </summary>
-    private static readonly Vector2Int[,] hexNeighborOffsets = new Vector2Int[2, 6]
+    private static readonly Vector2Int[,] offsetNeighborOffsets = new Vector2Int[2, 6]
     {
         { // even row (z % 2 == 0)
             new Vector2Int(0, 1),   // sağ-üst
@@ -178,13 +229,36 @@ public class GridManager : MonoBehaviour
     };
 
     /// <summary>
+    /// Hex komşu yönleri (axial koordinat sistemi - honeycomb modu).
+    /// Parity'ye gerek yok, offset'ler sabittir.
+    /// Sıra: sağ-üst, sağ, sağ-alt, sol-alt, sol, sol-üst
+    /// </summary>
+    private static readonly Vector2Int[] axialNeighborOffsets = new Vector2Int[6]
+    {
+        new Vector2Int(1, -1),  // 0: sağ-üst
+        new Vector2Int(1, 0),   // 1: sağ
+        new Vector2Int(0, 1),   // 2: sağ-alt
+        new Vector2Int(-1, 1),  // 3: sol-alt
+        new Vector2Int(-1, 0),  // 4: sol
+        new Vector2Int(0, -1)   // 5: sol-üst
+    };
+
+    /// <summary>
     /// Belirli bir hücreden belirli bir yöndeki komşuyu döndürür.
     /// direction: 0=sağ-üst, 1=sağ, 2=sağ-alt, 3=sol-alt, 4=sol, 5=sol-üst
     /// </summary>
     public CellScript GetNeighbor(int x, int z, int direction)
     {
-        int parity = z % 2;
-        Vector2Int offset = hexNeighborOffsets[parity, direction];
+        Vector2Int offset;
+        if (gridType == GridType.Honeycomb)
+        {
+            offset = axialNeighborOffsets[direction];
+        }
+        else
+        {
+            int parity = z % 2;
+            offset = offsetNeighborOffsets[parity, direction];
+        }
         return GetCell(x + offset.x, z + offset.y);
     }
 

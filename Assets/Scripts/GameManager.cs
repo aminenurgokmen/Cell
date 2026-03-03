@@ -16,20 +16,35 @@ public class GameManager : MonoBehaviour
     public int gridSizeX = 5;
     public int gridSizeZ = 5;
     public WaveManager waveManager; // Inspector’dan bağlayacağız
+    public GameObject tutorial;
+
+    [Header("Ses Efektleri")]
+    public AudioClip selectSound;
+    public AudioClip placeSound;
+    public AudioClip mergeSound;
+    private AudioSource audioSource;
 
     void Awake()
     {
         Instance = this;
         mainCam = Camera.main;
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+            audioSource = gameObject.AddComponent<AudioSource>();
     }
     void Start()
     {
+        // GridManager'dan güncel boyutları al
+        gridSizeX = GridManager.Instance.gridSizeX;
+        gridSizeZ = GridManager.Instance.gridSizeZ;
+
         grid = new CellScript[gridSizeX, gridSizeZ];
 
         CellScript[] allCells = FindObjectsOfType<CellScript>();
         foreach (CellScript cell in allCells)
         {
-            grid[cell.gridX, cell.gridZ] = cell;
+            if (cell.gridX >= 0 && cell.gridX < gridSizeX && cell.gridZ >= 0 && cell.gridZ < gridSizeZ)
+                grid[cell.gridX, cell.gridZ] = cell;
         }
     }
     void CheckMatchAll()
@@ -76,7 +91,7 @@ public class GameManager : MonoBehaviour
 
         if (cellsToDestroy.Count > 0)
         {
-            
+            if (mergeSound != null) audioSource.PlayOneShot(mergeSound);
             Debug.Log($"[MATCH] {cellsToDestroy.Count} hücre silinecek:");
             foreach (CellScript c in cellsToDestroy)
                 Debug.Log($"  Cell ({c.gridX},{c.gridZ}) cellID={c.cellID} currentItem={c.currentItem}");
@@ -240,9 +255,11 @@ public class GameManager : MonoBehaviour
 
         if (Physics.Raycast(ray, out hit, 100f, layerMask))
         {
+            tutorial.SetActive(false);
             activeItem = hit.collider.gameObject;
             dragHeight = activeItem.transform.position.y;
             dragStartPos = activeItem.transform.position;
+            if (selectSound != null) audioSource.PlayOneShot(selectSound);
         }
     }
 
@@ -325,6 +342,8 @@ public class GameManager : MonoBehaviour
                     Collider col = item.GetComponent<Collider>();
                     if (col != null) col.enabled = false;
                 }
+
+                if (placeSound != null) audioSource.PlayOneShot(placeSound);
 
                 // Boş kalan parent objeyi sil
                 if (activeItem != null && activeItem.GetComponentsInChildren<ItemScript>().Length == 0)
