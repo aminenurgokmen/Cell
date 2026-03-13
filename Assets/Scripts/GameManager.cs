@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using DG.Tweening;
 
 public class GameManager : MonoBehaviour
@@ -22,7 +24,11 @@ public class GameManager : MonoBehaviour
     public AudioClip selectSound;
     public AudioClip placeSound;
     public AudioClip mergeSound;
+    public AudioClip bigMergeSound;
     private AudioSource audioSource;
+
+    [Header("Post Processing")]
+    public Volume globalVolume;
 
     void Awake()
     {
@@ -51,6 +57,7 @@ public class GameManager : MonoBehaviour
     {
         // Tüm grid'i tara, eşleşen hücreleri topla
         HashSet<CellScript> cellsToDestroy = new HashSet<CellScript>();
+        int matchGroupCount = 0;
 
         for (int x = 0; x < gridSizeX; x++)
         {
@@ -82,6 +89,18 @@ public class GameManager : MonoBehaviour
 
                     if (line.Count >= 2)
                     {
+                        // Yeni bir match grubu mu kontrol et (en az bir yeni hücre içeriyor mu)
+                        bool hasNewCell = false;
+                        foreach (CellScript c in line)
+                        {
+                            if (!cellsToDestroy.Contains(c))
+                            {
+                                hasNewCell = true;
+                                break;
+                            }
+                        }
+                        if (hasNewCell) matchGroupCount++;
+
                         foreach (CellScript c in line)
                             cellsToDestroy.Add(c);
                     }
@@ -92,10 +111,41 @@ public class GameManager : MonoBehaviour
         if (cellsToDestroy.Count > 0)
         {
             if (mergeSound != null) audioSource.PlayOneShot(mergeSound);
-            Debug.Log($"[MATCH] {cellsToDestroy.Count} hücre silinecek:");
+            Debug.Log($"[MATCH] {cellsToDestroy.Count} hücre silinecek, {matchGroupCount} match grubu:");
             foreach (CellScript c in cellsToDestroy)
                 Debug.Log($"  Cell ({c.gridX},{c.gridZ}) cellID={c.cellID} currentItem={c.currentItem}");
+
+            if (matchGroupCount > 1)
+                PlayHueShiftEffect();
+
+            if (cellsToDestroy.Count > 3 && bigMergeSound != null)
+                audioSource.PlayOneShot(bigMergeSound);
+
             DestroyCells(cellsToDestroy);
+        }
+    }
+
+    void PlayHueShiftEffect()
+    {
+        if (globalVolume == null) return;
+
+        if (globalVolume.profile.TryGet(out ColorAdjustments colorAdjustments))
+        {
+            colorAdjustments.hueShift.Override(0f);
+            DOTween.To(
+                () => colorAdjustments.hueShift.value,
+                x => colorAdjustments.hueShift.value = x,
+                -50f,
+                0.25f
+            ).SetEase(Ease.InOutSine).OnComplete(() =>
+            {
+                DOTween.To(
+                    () => colorAdjustments.hueShift.value,
+                    x => colorAdjustments.hueShift.value = x,
+                    0f,
+                    0.25f
+                ).SetEase(Ease.InOutSine);
+            });
         }
     }
 
